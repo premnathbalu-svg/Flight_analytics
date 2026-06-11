@@ -1,0 +1,46 @@
+Show the total number of flights for each aircraft model, listing the model and its count.
+
+select aircraft_model,count(*) number_of_flights from (select distinct aircraft_model,flight_number from flights) a 
+group by aircraft_model;
+
+List all aircraft (registration, model) that have been assigned to more than 5 flights.
+
+select count(*),aircraft_registration,aircraft_model  from 
+(select distinct aircraft_model,flight_number,aircraft_registration from flights) a where aircraft_registration is not null  
+group by aircraft_registration,aircraft_model having count(*)>5;
+
+For each airport, display its name and the number of outbound flights, but only for airports with more than 5 flights.
+select name as airport_name,count(*) number_of_outbound_flights  from flights a join 
+airport b on a.origin_iata=b.iata_code where a.status="Departed" group by name having count(flight_id)>5;
+
+Find the top 3 destination airports (name, city) by number of arriving flights, sorted by count descending.
+select destination_iata,name as airport_name, city  from flights f join airport a on f.destination_iata=a.iata_code group by destination_iata order by count(*) desc limit 3;
+
+Show for each flight: number, origin, destination, and a label 'Domestic' or 'International' using CASE WHEN on country match.
+
+SELECT
+    f.flight_number,
+    o.name AS origin,
+    d.name AS destination,
+     CASE
+         WHEN o.country = d.country THEN 'Domestic'
+  ELSE 'International' END AS flight_type
+FROM flights f
+left JOIN airport o
+    ON f.origin_iata = o.iata_code
+left JOIN airport d
+    ON f.destination_iata = d.iata_code;
+
+
+Show the 5 most recent arrivals at “DEL” airport including flight number, aircraft, departure airport name, and arrival time, ordered by latest arrival.
+select flight_number,aircraft_model as aircraft,origin_iata, actual_arrival   from flights where destination_iata='DEL' order by actual_arrival desc limit 5;
+
+ Find all airports with no arriving flights (never used as a destination in flights table).
+select * from airport a left join flights f on a.iata_code=f.destination_iata where destination_iata is null;
+
+For each airline, count the number of flights by status (e.g., 'On Time', 'Delayed', 'Cancelled') using CASE WHEN.
+select airline_code, status, count(*) number_of_flights from flights group by airline_code,status ;
+
+Show all cancelled flights, with aircraft and both airports, ordered by departure time descending.
+select flight_number,o.name as origin_airport, d.name as destination_airport  from flights f left join airport o on f.origin_iata=o.iata_code left join airport d on f.destination_iata=o.iata_code where status='Canceled' order by actual_departure desc;
+
