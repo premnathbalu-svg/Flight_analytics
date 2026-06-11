@@ -1,0 +1,112 @@
+import mysql.connector 
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="12345678"
+)
+cursor = connection.cursor()
+cursor
+
+
+cursor.execute("CREATE DATABASE IF NOT EXISTs flight_analytics;")
+print("MYSQL database flight_analytics is created successfully")
+
+
+cursor.execute("USE flight_analytics;")
+cursor.execute("""CREATE TABLE IF NOT EXISTS airport (
+    airport_id INT AUTO_INCREMENT PRIMARY KEY,
+    icao_code VARCHAR(10) UNIQUE,
+    iata_code VARCHAR(10) UNIQUE,
+    name VARCHAR(255),
+    city VARCHAR(255),
+    country VARCHAR(255),
+    continent VARCHAR(50),
+    latitude DOUBLE,
+    longitude DOUBLE,
+    timezone VARCHAR(50)
+);""")
+
+
+import mysql.connector 
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="12345678"
+)
+cursor = connection.cursor()
+cursor
+
+cursor.execute("USE flight_analytics")
+cursor.execute("""CREATE TABLE IF NOT EXISTS aircraft (
+    aircraft_id INT AUTO_INCREMENT PRIMARY KEY,
+    registration VARCHAR(255) UNIQUE,
+    model VARCHAR(255),
+    manufacturer VARCHAR(255),
+    icao_type_code VARCHAR(255),
+    owner VARCHAR(255)
+);""")
+connection.commit()
+
+
+cursor.execute("""CREATE TABLE IF NOT EXISTS flights (
+     flight_id VARCHAR(255) PRIMARY KEY,
+    flight_number VARCHAR(255),
+    aircraft_registration VARCHAR(255),
+    origin_iata VARCHAR(255),
+    destination_iata VARCHAR(255),
+    scheduled_departure VARCHAR(255),
+    actual_departure VARCHAR(255),
+    scheduled_arrival VARCHAR(255),
+    actual_arrival VARCHAR(255),
+    status VARCHAR(255),
+    airline_code VARCHAR(255),
+	aircraft_model(255)
+);""")
+
+
+cursor.execute("""CREATE TABLE IF NOT EXISTS airport_delays (
+    delay_id INT AUTO_INCREMENT PRIMARY KEY,
+    airport_iata VARCHAR(255),
+    delay_date VARCHAR(255),
+    total_flights INT,
+    delayed_flights INT,
+    avg_delay_min INT,
+    median_delay_min INT,
+    canceled_flights INT
+);""")
+connection.commit()
+
+---------------------
+
+import mysql.connector 
+import pandas as pd 
+
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="12345678"
+)
+cursor = connection.cursor()
+cursor
+
+cursor.execute("USE flight_analytics")
+cursor.execute("""CREATE TABLE IF NOT EXISTS flights (
+     flight_id VARCHAR(255) PRIMARY KEY,
+    flight_number VARCHAR(255),
+    aircraft_registration VARCHAR(255),
+    origin_iata VARCHAR(255),
+    destination_iata VARCHAR(255),
+    scheduled_departure VARCHAR(255),
+    actual_departure VARCHAR(255),
+    scheduled_arrival VARCHAR(255),
+    actual_arrival VARCHAR(255),
+    status VARCHAR(255),
+    airline_code VARCHAR(255),
+	aircraft_model VARCHAR(255)
+);""")
+
+
+connection.commit()
+
+df = pd.read_sql_query("select * from flights;",connection)
+df.columns

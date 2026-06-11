@@ -1,0 +1,84 @@
+import requests
+import mysql.connector
+
+# ---------- DATABASE CONNECTION ----------
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="12345678",
+    database="flight_analytics"  
+)
+cursor = connection.cursor()
+
+# ---------- API CONFIG ----------
+API_HOST = "aerodatabox.p.rapidapi.com"
+API_KEY = "581817d3cbmsh354bd5c73529384p1a6b5cjsn5a0d30cd5d39"
+
+HEADERS = {
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": API_HOST
+}
+
+# ---------- FETCH AIRPORT DATA ----------
+def get_airport_data(iata_code):
+    url = f"https://{API_HOST}/airports/iata/{iata_code}"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    return response.json()
+
+# ---------- STORE AIRPORT DATA ----------
+def store_airport_data(data):
+    sql = """
+    INSERT INTO airport (
+        icao_code,
+        iata_code,
+        name,
+        city,
+        country,
+        continent,
+        latitude,
+        longitude,
+        timezone
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE
+        name = VALUES(name),
+        city = VALUES(city),
+        country = VALUES(country),
+        continent = VALUES(continent),
+        latitude = VALUES(latitude),
+        longitude = VALUES(longitude),
+        timezone = VALUES(timeZone)
+    """
+
+    values = (
+        data.get("icao"),
+        data.get("iata"),
+        data.get("fullName"),
+        data.get("municipalityName"),
+        data.get("country", {}).get("name"),
+        data.get("continent", {}).get("name"),
+        data.get("location", {}).get("lat"),
+        data.get("location", {}).get("lon"),
+        data.get("timeZone")
+    )
+
+    cursor.execute(sql, values)
+    connection.commit()
+
+# ---------- RUN ----------
+airport_codes = [
+    "LHR", "JFK", "CDG", "DXB", "HND",
+    "SIN", "AMS", "FRA", "ATL", "ORD",
+    "PEK", "SYD", "DEL", "GRU", "NRT"
+]
+
+for code in airport_codes:
+    try:
+        data = get_airport_data(code)
+        store_airport_data(data)  
+        print(f" Saved: {data.get('fullName')} ({code})")
+    except Exception as e:
+        print(f" Error for {code}: {e}")
+
+cursor.close()
+connection.close()

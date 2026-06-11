@@ -1,0 +1,71 @@
+import requests
+import mysql.connector
+import pandas as pd
+from datetime import datetime
+import time
+
+# ==============================
+# DATABASE CONNECTION
+# ==============================
+connection = mysql.connector.connect(
+    host="localhost", user="root", password="12345678", database="flight_analytics"
+)
+connection.autocommit = True
+cursor = connection.cursor()
+
+# ==============================
+# API CONFIG
+# ==============================
+API_HOST = "aerodatabox.p.rapidapi.com"
+API_KEY = "581817d3cbmsh354bd5c73529384p1a6b5cjsn5a0d30cd5d39"
+
+HEADERS = {"x-rapidapi-key": API_KEY, "x-rapidapi-host": API_HOST}
+
+# ---------- FETCH DATA ----------
+def get_data(reg):
+    url = f"https://{API_HOST}/aircrafts/reg/{reg}"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    return response.json()
+
+
+df = pd.read_sql_query(
+    "select distinct aircraft_registration from flight_analytics.flights where aircraft_registration is not null and aircraft_registration not in (select registration from aircraft);",
+    connection,
+)
+aircraft_regis = df["aircraft_registration"].tolist()
+# ---------- store DATA ----------
+
+def store_data(data):
+    insert = """insert into aircraft( registration , model , manufacturer,icao_type_code,owner) values (%s,%s,%s,%s,%s)
+    on duplicate key update registration=VALUES(registration),model=VALUES(model),manufacturer=VALUES(manufacturer),icao_type_code=VALUES(icao_type_code),owner=VALUES(owner);"""
+    values = (
+        data.get("reg", None),
+        data.get("typeName", None),
+        data.get("airlineName", None),
+        data.get("icaoCode", None),
+        data.get("productionLine", None),
+    )
+    cursor.execute(insert, values)
+
+
+success_codes = []
+Error_codes = {"code": [], "exception": []}
+
+for aircraft in aircraft_regis:
+    try:
+        data = get_data(aircraft)
+        store_data(data)
+        # success_codes.append(f"{aircraft}")
+        print(f"successfully saved the data for the code - {aircraft}")
+        time.sleep(1.2)
+    except Exception as e:
+        Error_codes["code"].append((aircraft))
+        Error_codes["exception"].append(str(e))
+        continue
+
+# print(f"List of successful codes - {success_codes}")
+print(f"List of error codes - {Error_codes}")
+
+cursor.close()
+connection.close()

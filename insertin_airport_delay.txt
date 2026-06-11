@@ -1,0 +1,98 @@
+import requests
+import mysql.connector
+import pandas as pd
+import json
+import time
+from requests.exceptions import ReadTimeout, RequestException
+import math
+
+
+# ---------- DATABASE CONNECTION ----------
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="12345678",
+    database="flight_analytics"  
+)
+cursor = connection.cursor()
+connection.autocommit = True
+
+# ---------- API CONFIG ----------
+API_HOST = "aerodatabox.p.rapidapi.com"
+API_KEY = "06a40e5dc2msh94f056c0c5be059p1becc7jsn0a231820f03b"
+
+HEADERS = {
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": API_HOST
+}
+iata_code = [
+    "HND"
+]
+
+columns = ["airport_iata","delay_date","total_flights","delayed_flights",
+                 "avg_delay_min","median_delay_min","canceled_flights"]
+
+
+rows = []
+
+# ---------- FETCH AIRPORT DATA ----------
+for iata in iata_code:
+    url = f"https://{API_HOST}/airports/iata/{iata}/delays"
+
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+    except ReadTimeout:
+        print(f"⏱️ Timeout for {iata}, skipping...")
+        continue
+
+    except RequestException as e:
+        print(f"❌ Request failed for {iata}: {e}")
+        continue
+
+    dep = data.get("departuresDelayInformation", {})
+
+    rows.append((
+        iata,
+        data.get("from", {}).get("utc"),
+        dep.get("numTotal"),
+        dep.get("numQualifiedTotal"),
+        None,
+        dep.get("medianDelay"),
+        dep.get("numCancelled")
+    ))
+
+    time.sleep(1.2)
+
+# ---------- DATAFRAME (OUTSIDE LOOP) ----------
+df = pd.DataFrame(rows, columns=columns)
+
+df["delay_date"] = (
+    pd.to_datetime(df["delay_date"], utc=True, errors="coerce")
+      .dt.date
+)
+
+df["median_delay_min"] = (
+    pd.to_timedelta(df["median_delay_min"], errors="coerce")
+      .dt.total_seconds()
+      .div(60)
+)
+
+df["avg_delay_min"] = df["median_delay_min"]
+
+# ✅ CRITICAL LINE (fixes NaN → None)
+df = df.where(pd.notnull(df), None)
+
+final_rows = list(df.astype(object).itertuples(index=False, name=None))
+
+final_rows = [
+    tuple(None if (isinstance(x, float) and math.isnan(x)) else x for x in row)
+    for row in final_rows
+]
+
+cursor.executemany(insert_sql, final_rows)
+connection.commit()
+cursor.close()
+connection.close()
