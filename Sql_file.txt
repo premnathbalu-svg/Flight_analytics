@@ -44,3 +44,32 @@ select airline_code, status, count(*) number_of_flights from flights group by ai
 Show all cancelled flights, with aircraft and both airports, ordered by departure time descending.
 select flight_number,o.name as origin_airport, d.name as destination_airport  from flights f left join airport o on f.origin_iata=o.iata_code left join airport d on f.destination_iata=o.iata_code where status='Canceled' order by actual_departure desc;
 
+List all city pairs (origin-destination) that have more than 2 different aircraft models operating flights between them.
+SELECT
+    ao.city AS origin_city,
+    ad.city AS destination_city,
+    COUNT(DISTINCT f.aircraft_model) AS aircraft_model_count
+FROM flights f
+JOIN airport ao
+    ON f.origin_iata = ao.iata_code
+JOIN airport ad
+    ON f.destination_iata = ad.iata_code
+GROUP BY
+    ao.city,
+    ad.city
+HAVING COUNT(DISTINCT f.aircraft_model) > 2;
+
+
+For each destination airport, compute the % of delayed flights (status='Delayed') among all arrivals, sorted by highest percentage. 
+SELECT
+    destination_iata,
+    ROUND(
+        100.0 * SUM(CASE WHEN status = 'Delayed' THEN 1 ELSE 0 END)
+        / COUNT(*),
+        2
+    ) AS delayed_percentage
+FROM flights
+WHERE destination_iata IS NOT NULL
+GROUP BY destination_iata
+ORDER BY delayed_percentage DESC;
+
